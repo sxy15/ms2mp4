@@ -1,2 +1,5 @@
 # ms2mp4
-mp4 &amp; srt to mp4
+
+```
+node bin.js ./videos ./output
+```
