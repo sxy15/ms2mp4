@@ -1,6 +1,10 @@
 {
   "name": "ms2mp4",
   "version": "1.0.0",
+  "files": [
+    "bin.js",
+    "config.js"
+  ],
   "description": "mp4 srt 硬字幕",
   "keywords": [
     "mp4",
@@ -12,7 +16,7 @@
     "ms2mp4": "./bin.js"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    
   },
   "author": "sxy15",
   "license": "ISC"
