@@ -60,8 +60,8 @@ async function processVideo(videoPath, subtitlePath, outputPath) {
           '-crf', CONFIG.encoding.crf,
           '-threads', CONFIG.encoding.threads,
           '-c:a', 'copy',
-          '-maxrate', '5M',
-          '-bufsize', '10M',
+          '-maxrate', '1.5M',
+          '-bufsize', '3M',
           '-tune', 'fastdecode',
           '-movflags', '+faststart',
           '-max_muxing_queue_size', '1024',
@@ -204,34 +204,49 @@ async function batchProcess(inputDir, outputDir) {
         STATUS.results.clear();
 
         console.log(`找到 ${matches.length} 对匹配的文件`);
-        console.log(`使用 ${CONFIG.concurrency} 个线程并行处理`);
         console.log(`使用编码器: ${CONFIG.encoding.getEncoder()}\n`);
 
-        const batchSize = Math.ceil(matches.length / CONFIG.concurrency);
-        const batches = [];
+        // 每批处理10个文件
+        const BATCH_SIZE = 10;
+        let currentIndex = 0;
 
-        for (let i = 0; i < matches.length; i += batchSize) {
-            batches.push(processBatch(matches, outputDir, i, i + batchSize));
+        while (currentIndex < matches.length) {
+            const currentBatch = matches.slice(currentIndex, currentIndex + BATCH_SIZE);
+            console.log(`\n开始处理第 ${currentIndex + 1} 到 ${Math.min(currentIndex + BATCH_SIZE, matches.length)} 个文件`);
+
+            const results = await processBatch(matches, outputDir, currentIndex, currentIndex + BATCH_SIZE);
+            
+            const batchSuccessful = results.filter(r => r.success);
+            const batchFailed = results.filter(r => !r.success);
+
+            console.log('\n当前批次处理完成:');
+            console.log(`成功: ${batchSuccessful.length} 个`);
+            console.log(`失败: ${batchFailed.length} 个`);
+
+            if (batchFailed.length > 0) {
+                console.log('\n本批次失败文件:');
+                batchFailed.forEach((item, index) => {
+                    console.log(`${index + 1}. ${item.file}`);
+                    console.log(`   错误: ${item.error}`);
+                });
+            }
+
+            currentIndex += BATCH_SIZE;
+
+            // 如果还有未处理的文件，等待用户确认继续
+            if (currentIndex < matches.length) {
+                await new Promise(resolve => {
+                    console.log('\n按回车键继续处理下一批文件...');
+                    process.stdin.once('data', () => resolve());
+                });
+            }
         }
 
-        const results = await Promise.all(batches);
-        const flatResults = results.flat();
-
-        const successful = flatResults.filter(r => r.success);
-        const failed = flatResults.filter(r => !r.success);
-
-        console.log('\n处理完成统计:');
+        // 最终统计
+        console.log('\n所有文件处理完成统计:');
         console.log(`总计: ${matches.length} 个文件`);
-        console.log(`成功: ${successful.length} 个`);
-        console.log(`失败: ${failed.length} 个`);
-
-        if (failed.length > 0) {
-            console.log('\n失败文件列表:');
-            failed.forEach((item, index) => {
-                console.log(`${index + 1}. ${item.file}`);
-                console.log(`   错误: ${item.error}`);
-            });
-        }
+        console.log(`成功: ${Array.from(STATUS.results.values()).filter(success => success).length} 个`);
+        console.log(`失败: ${Array.from(STATUS.results.values()).filter(success => !success).length} 个`);
 
     } catch (error) {
         console.error('处理过程中发生错误:', error);
